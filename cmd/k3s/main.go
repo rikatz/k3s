@@ -30,7 +30,6 @@ func main() {
 	app := cmds.NewApp()
 	app.Commands = []cli.Command{
 		cmds.NewServerCommand(wrap(version.Program+"-server", dataDir, os.Args)),
-		cmds.NewAgentCommand(wrap(version.Program+"-agent", dataDir, os.Args)),
 		cmds.NewKubectlCommand(externalCLIAction("kubectl", dataDir)),
 		cmds.NewCRICTL(externalCLIAction("crictl", dataDir)),
 		cmds.NewCtrCommand(externalCLIAction("ctr", dataDir)),

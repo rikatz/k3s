@@ -24,7 +24,6 @@ import (
 	"github.com/rancher/k3s/pkg/deploy"
 	"github.com/rancher/k3s/pkg/node"
 	"github.com/rancher/k3s/pkg/nodepassword"
-	"github.com/rancher/k3s/pkg/rootlessports"
 	"github.com/rancher/k3s/pkg/servicelb"
 	"github.com/rancher/k3s/pkg/static"
 	"github.com/rancher/k3s/pkg/util"
@@ -183,10 +182,6 @@ func coreControllers(ctx context.Context, sc *Context, config *Config) error {
 		sc.Core.Core().V1().Endpoints(),
 		!config.DisableServiceLB, config.Rootless); err != nil {
 		return err
-	}
-
-	if config.Rootless {
-		return rootlessports.Register(ctx, sc.Core.Core().V1().Service(), !config.DisableServiceLB, config.ControlConfig.HTTPSPort)
 	}
 
 	return nil

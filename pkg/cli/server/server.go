@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	net2 "net"
 	"os"
 	"path/filepath"
@@ -11,11 +10,9 @@ import (
 	systemd "github.com/coreos/go-systemd/daemon"
 	"github.com/erikdubbelboer/gspt"
 	"github.com/pkg/errors"
-	"github.com/rancher/k3s/pkg/agent"
 	"github.com/rancher/k3s/pkg/cli/cmds"
 	"github.com/rancher/k3s/pkg/datadir"
 	"github.com/rancher/k3s/pkg/netutil"
-	"github.com/rancher/k3s/pkg/rootless"
 	"github.com/rancher/k3s/pkg/server"
 	"github.com/rancher/k3s/pkg/token"
 	"github.com/rancher/k3s/pkg/version"
@@ -45,22 +42,9 @@ func run(app *cli.Context, cfg *cmds.Server) error {
 
 	// hide process arguments from ps output, since they may contain
 	// database credentials or other secrets.
+	// TODO: Turn the method below into a syscall, if possible
+	// If you use the below, you NEED to compile this in FreeBSD!
 	gspt.SetProcTitle(os.Args[0] + " server")
-
-	if !cfg.DisableAgent && os.Getuid() != 0 && !cfg.Rootless {
-		return fmt.Errorf("must run as root unless --disable-agent is specified")
-	}
-
-	if cfg.Rootless {
-		dataDir, err := datadir.LocalHome(cfg.DataDir, true)
-		if err != nil {
-			return err
-		}
-		cfg.DataDir = dataDir
-		if err := rootless.Rootless(dataDir); err != nil {
-			return err
-		}
-	}
 
 	if cfg.Token == "" && cfg.ClusterSecret != "" {
 		cfg.Token = cfg.ClusterSecret
@@ -252,35 +236,8 @@ func run(app *cli.Context, cfg *cmds.Server) error {
 		}
 	}()
 
-	if cfg.DisableAgent {
-		<-ctx.Done()
-		return nil
-	}
-
-	ip := serverConfig.ControlConfig.BindAddress
-	if ip == "" {
-		ip = "127.0.0.1"
-	}
-
-	url := fmt.Sprintf("https://%s:%d", ip, serverConfig.ControlConfig.SupervisorPort)
-	token, err := server.FormatToken(serverConfig.ControlConfig.Runtime.AgentToken, serverConfig.ControlConfig.Runtime.ServerCA)
-	if err != nil {
-		return err
-	}
-
-	agentConfig := cmds.AgentConfig
-	agentConfig.Debug = app.GlobalBool("debug")
-	agentConfig.DataDir = filepath.Dir(serverConfig.ControlConfig.DataDir)
-	agentConfig.ServerURL = url
-	agentConfig.Token = token
-	agentConfig.DisableLoadBalancer = true
-	agentConfig.Rootless = cfg.Rootless
-	if agentConfig.Rootless {
-		// let agent specify Rootless kubelet flags, but not unshare twice
-		agentConfig.RootlessAlreadyUnshared = true
-	}
-
-	return agent.Run(ctx, agentConfig)
+	<-ctx.Done()
+	return nil
 }
 
 func knownIPs(ips []string) []string {
